@@ -1,79 +1,83 @@
 <?php
-
-/**
- * Simple XML Reader
+/*
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * @license Public Domain
- * @author Dmitry Pyatkov(aka dkrnl) <dkrnl@yandex.ru>
- * @url http://github.com/dkrnl/SimpleXMLReader
+ * This software consists of voluntary contributions made by many individuals
+ * and is licensed under the MIT license.
  */
+
+declare (strict_types=1);
+
+namespace SimpleXMLReader;
+
+use DOMCharacterData;
+use DomDocument;
+use DOMException;
+use Exception;
+use SimpleXMLElement;
+use XMLReader;
+
+use function array_slice;
+use function array_splice;
+use function call_user_func;
+use function count;
+use function is_callable;
+use function simplexml_import_dom;
+
 class SimpleXMLReader extends XMLReader
 {
-
     /**
      * Callbacks
      *
-     * @var array
+     * @var callable[]
      */
-    protected $callback = array();
-
+    protected array $callback = [];
 
     /**
      * Depth
-     *
-     * @var int
      */
-    protected $currentDepth = 0;
-
+    protected int $currentDepth = 0;
 
     /**
-     * Previos depth
-     *
-     * @var int
+     * Previous depth
      */
-    protected $prevDepth = 0;
-
+    protected int $prevDepth = 0;
 
     /**
      * Stack of the parsed nodes
-     *
-     * @var array
      */
-    protected $nodesParsed = array();
-
+    protected array $nodesParsed = [];
 
     /**
      * Stack of the node types
-     *
-     * @var array
      */
-    protected $nodesType = array();
-
+    protected array $nodesType = [];
 
     /**
      * Stack of node position
-     *
-     * @var array
      */
-    protected $nodesCounter = array();
-    
+    protected array $nodesCounter = [];
+
     /**
      * Do not remove redundant white space.
-     * 
-     * @var bool
      */
-    public $preserveWhiteSpace = true;
-
+    public bool $preserveWhiteSpace = true;
 
     /**
      * Add node callback
-     *
-     * @param  string   $xpath
-     * @param  callback $callback
-     * @param  integer  $nodeType
-     * @return SimpleXMLReader
+     * @throws Exception
      */
-    public function registerCallback($xpath, $callback, $nodeType = XMLREADER::ELEMENT)
+    public function registerCallback(string $xpath, callable $callback, int $nodeType = XMLReader::ELEMENT): static
     {
         if (isset($this->callback[$nodeType][$xpath])) {
             throw new Exception("Already exists callback '$xpath':$nodeType.");
@@ -85,18 +89,14 @@ class SimpleXMLReader extends XMLReader
         return $this;
     }
 
-
     /**
      * Remove node callback
-     *
-     * @param  string  $xpath
-     * @param  integer $nodeType
-     * @return SimpleXMLReader
+     * @throws Exception
      */
-    public function unRegisterCallback($xpath, $nodeType = XMLREADER::ELEMENT)
+    public function unRegisterCallback(string $xpath, int $nodeType = XMLReader::ELEMENT): static
     {
         if (!isset($this->callback[$nodeType][$xpath])) {
-            throw new Exception("Unknow parser callback '$xpath':$nodeType.");
+            throw new Exception("Unknown parser callback '$xpath':$nodeType.");
         }
         unset($this->callback[$nodeType][$xpath]);
         return $this;
@@ -106,11 +106,13 @@ class SimpleXMLReader extends XMLReader
      * Moves cursor to the next node in the document.
      *
      * @link http://php.net/manual/en/xmlreader.read.php
-     * @return bool Returns TRUE on success or FALSE on failure.
+     * @return bool
+     *   Returns TRUE on success or FALSE on failure.
+     * @throws Exception
      */
-    public function read()
+    public function read(): bool
     {
-        $read = parent::read();       
+        $read = parent::read();
         if ($this->depth < $this->prevDepth) {
             if (!isset($this->nodesParsed[$this->depth])) {
                 throw new Exception("Invalid xml: missing items in SimpleXMLReader::\$nodesParsed");
@@ -132,19 +134,19 @@ class SimpleXMLReader extends XMLReader
             $this->nodesType[$this->depth] = $this->nodeType;
             $this->nodesCounter[$this->depth] = 1;
         }
-        $this->prevDepth = $this->depth;       
+        $this->prevDepth = $this->depth;
         return $read;
     }
 
     /**
      * Return current xpath node
-     *
-     * @param boolean $nodesCounter
-     * @return string
+     * @throws Exception
      */
-     public function currentXpath($nodesCounter = false)
-     {
-        if (count($this->nodesCounter) != count($this->nodesParsed) && count($this->nodesCounter) != count($this->nodesType)) {
+    public function currentXpath(bool $nodesCounter = false): string
+    {
+        if (count($this->nodesCounter) != count($this->nodesParsed) && count($this->nodesCounter) != count(
+                $this->nodesType
+            )) {
             throw new Exception("Empty reader");
         }
         $result = "";
@@ -167,20 +169,18 @@ class SimpleXMLReader extends XMLReader
                     break;
 
                 case self::ATTRIBUTE:
-                    $result .= "[@{$name}]";
+                    $result .= "[@$name]";
                     break;
             }
         }
         return $result;
     }
 
-
     /**
      * Run parser
-     *
-     * @return void
+     * @throws Exception
      */
-    public function parse()
+    public function parse(): void
     {
         if (empty($this->callback)) {
             throw new Exception("Empty parser callback.");
@@ -193,7 +193,7 @@ class SimpleXMLReader extends XMLReader
             if (isset($this->callback[$this->nodeType][$this->name])) {
                 $continue = call_user_func($this->callback[$this->nodeType][$this->name], $this);
             } else {
-                $xpath = $this->currentXpath(false); // without node counter
+                $xpath = $this->currentXpath(); // without node counter
                 if (isset($this->callback[$this->nodeType][$xpath])) {
                     $continue = call_user_func($this->callback[$this->nodeType][$xpath], $this);
                 } else {
@@ -209,40 +209,44 @@ class SimpleXMLReader extends XMLReader
     /**
      * Run XPath query on current node
      *
-     * @param  string $path
-     * @param  string $version
-     * @param  string $encoding
-     * @param  string $className
-     * @return array(SimpleXMLElement)
+     * @param string $path
+     * @param string $version
+     * @param string $encoding
+     * @param string|null $className
+     * @return array|false|null array<SimpleXMLElement>|false|null
+     *   array<SimpleXMLElement>|false|null
+     * @throws DOMException
      */
-    public function expandXpath($path, $version = "1.0", $encoding = "UTF-8", $className = null)
-    {     
+    public function expandXpath(
+        string $path,
+        string $version = "1.0",
+        string $encoding = "UTF-8",
+        ?string $className = null
+    ): array|false|null {
         return $this->expandSimpleXml($version, $encoding, $className)->xpath($path);
     }
 
     /**
      * Expand current node to string
-     *
-     * @param  string $version
-     * @param  string $encoding
-     * @param  string $className
-     * @return SimpleXMLElement
+     * @throws DOMException
      */
-    public function expandString($version = "1.0", $encoding = "UTF-8", $className = null)
-    {
+    public function expandString(
+        string $version = "1.0",
+        string $encoding = "UTF-8",
+        ?string $className = null
+    ): string|false {
         return $this->expandSimpleXml($version, $encoding, $className)->asXML();
     }
 
     /**
      * Expand current node to SimpleXMLElement
-     *
-     * @param  string $version
-     * @param  string $encoding
-     * @param  string $className
-     * @return SimpleXMLElement
+     * @throws DOMException
      */
-    public function expandSimpleXml($version = "1.0", $encoding = "UTF-8", $className = null)
-    {
+    public function expandSimpleXml(
+        string $version = "1.0",
+        string $encoding = "UTF-8",
+        ?string $className = null
+    ): SimpleXMLElement {
         $element = $this->expand();
         $document = new DomDocument($version, $encoding);
         $document->preserveWhiteSpace = $this->preserveWhiteSpace;
@@ -260,12 +264,9 @@ class SimpleXMLReader extends XMLReader
 
     /**
      * Expand current node to DomDocument
-     *
-     * @param  string $version
-     * @param  string $encoding
-     * @return DomDocument
+     * @throws DOMException
      */
-    public function expandDomDocument($version = "1.0", $encoding = "UTF-8")
+    public function expandDomDocument(string $version = "1.0", string $encoding = "UTF-8"): DOMDocument
     {
         $element = $this->expand();
         $document = new DomDocument($version, $encoding);
@@ -281,5 +282,4 @@ class SimpleXMLReader extends XMLReader
         $document->appendChild($node);
         return $document;
     }
-
 }

@@ -1,20 +1,22 @@
 {
-    "name": "dkrnl/simplexmlreader",
-    "description": "Wrapper XMLReader class, for simple SAX-reading(and simple XPath-queries) of huge(testing over 1G file) xml.",
+    "name": "golovin-a/SimpleXMLReader",
+    "description": "Extends XMLReader PHP class, for simple SAX-reading and XPath queries of huge XML files.",
     "keywords": ["XML", "XMLReader", "Iterator", "SimpleXML"],
-    "homepage": "https://github.com/dkrnl/SimpleXMLReader",
+    "homepage": "https://github.com/golovin-a/SimpleXMLReader",
     "authors": [
         {
-            "name": "dkrnl",
-            "homepage": "http://dpyatkov.ru/"
+            "name": "Golovin Andrey",
+            "homepage": "https://github.com/golovin-a"
         }
     ],
     "autoload": {
-        "files": ["autoload.php"]
+        "psr-4": {
+            "SimpleXMLReader\\": "library/"
+        }
     },
-    "license": "PDDL-1.0",
+    "license": "MIT",
     "require": {
-        "php": ">=5.3.0",
+        "php": ">=8.1",
         "lib-libxml" : "*",
         "ext-xmlreader" : "*",
         "ext-dom" : "*"
